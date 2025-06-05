@@ -1,6 +1,7 @@
 package main
 
 import (
+	"forum/handlers"
 	"forum/models"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ func main() {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Forum is working"))
 	})
+	mux.HandleFunc("/register", handlers.RegisterHandler)
 
 	log.Println("Server is running on http://localhost:8080")
 	http.ListenAndServe(":8080", mux)

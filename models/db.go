@@ -29,3 +29,11 @@ func InitDB(filepath string) {
 		log.Fatal("Ошибка при создании таблицы:", err)
 	}
 }
+
+func RegisterUser(email, username, password string) error {
+	_, err := DB.Exec(`
+		INSERT INTO users (email, username, password)
+		VALUES (?, ?, ?);
+	`, email, username, password)
+	return err
+}
