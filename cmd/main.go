@@ -5,7 +5,6 @@ import (
 	"errors"
 	"forum/handlers"
 	"forum/models"
-	"log"
 	"log/slog"
 	"net/http"
 	"os/signal"
@@ -15,20 +14,26 @@ import (
 )
 
 func main() {
-	models.InitDB("./forum.db")
+	models.InitDB()
 	process, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	assets := http.FileServer(http.Dir("assets"))
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", assets))
-	mux.HandleFunc("GET /", handlers.IndexHandler)
+	mux.HandleFunc("GET /", handlers.Home)
+	mux.HandleFunc("/register", handlers.Register)
+	mux.HandleFunc("/login", handlers.Login)
+	mux.HandleFunc("/logout", handlers.Logout)
+	mux.HandleFunc("/post", handlers.Post)
+	mux.HandleFunc("/comment", handlers.Comment)
+	mux.HandleFunc("/like", handlers.Like)
 
-	mux.HandleFunc("/register", handlers.RegisterHandler)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	server := http.Server{
 		Addr:    ":8080",
-		Handler: assets,
+		Handler: mux,
 	}
 
 	go func() {
@@ -40,7 +45,6 @@ func main() {
 	}()
 
 	<-process.Done()
-
 	slog.Info("received interrupt signal")
 
 	if err := server.Shutdown(context.Background()); err != nil {
@@ -48,6 +52,4 @@ func main() {
 	}
 
 	slog.Info("server stopped")
-	log.Println("Server is running on http://localhost:8080")
-	http.ListenAndServe(":8080", mux)
 }
