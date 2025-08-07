@@ -1,15 +1,18 @@
 package main
 
 import (
-	"forum/routes"
+	"forum/internal/database"
+	"forum/internal/handlers"
 	"log"
 	"net/http"
-	// _ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
-	mux := routes.GetRoutes()
-
+	database.InitDB()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handlers.IndexHandler)
+	mux.HandleFunc("/register", handlers.RegisterHandler)
+	mux.HandleFunc("/login", handlers.LoginHandler)
 	log.Println("Server started at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
