@@ -16,6 +16,10 @@ func InitDB(filepath string) {
 		log.Fatal("Error opening DB:", err)
 	}
 
+	if err := DB.Ping(); err != nil {
+		log.Fatal("Error connecting to DB:", err)
+	}
+
 	createUsersTable()
 }
 

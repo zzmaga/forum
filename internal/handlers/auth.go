@@ -20,6 +20,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		GetRegisterHandler(w, r)
 	case http.MethodPost:
 		PostRegisterHandler(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -29,6 +32,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		GetLoginHandler(w, r)
 	case http.MethodPost:
 		PostLoginHandler(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -42,7 +48,7 @@ func GetLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "", http.StatusBadRequest)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		log.Println("form parse error:", err)
 		return
 	}
@@ -50,8 +56,13 @@ func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.Form.Get("name")
 	email := r.Form.Get("email")
 	password := r.Form.Get("password")
-	// log.Printf("Register: name=%s, email=%s", name, email) // временно, для отладки
 
+	if username == "" || email == "" || password == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
+		return
+	}
+
+	// Проверка на уникальность email
 	var exists bool
 	err := database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email).Scan(&exists)
 	if err != nil && err != sql.ErrNoRows {
@@ -63,17 +74,29 @@ func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// hashing password
+	// Проверка на уникальность username
+	err = database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)", username).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		http.Error(w, "Username already taken", http.StatusBadRequest)
+		return
+	}
+
+	// Хеширование пароля
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Error encrypting password", http.StatusInternalServerError)
 		return
 	}
 
-	// Saving user
-	_, err = database.DB.Exec("INSERT INTO users(username, email, password_hash) VALUES (?, ?, ?)", username, email, string(hash))
+	// Сохранение в БД
+	_, err = database.DB.Exec("INSERT INTO users(username, email, password) VALUES (?, ?, ?)", username, email, string(hash))
 	if err != nil {
 		http.Error(w, "Database insert error", http.StatusInternalServerError)
+		log.Println("insert error:", err)
 		return
 	}
 
@@ -82,17 +105,25 @@ func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "", http.StatusBadRequest)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		log.Println("form parse error:", err)
 		return
 	}
 
 	email := r.Form.Get("email")
-	password := r.Form.Get("password")
-	// log.Printf("Login: email=%s", email)
+	passwordFromForm := r.Form.Get("password")
+
+	if email == "" {
+		http.Error(w, "Email and password are required", http.StatusBadRequest)
+		return
+	} else if passwordFromForm == "" {
+		http.Error(w, "Password is required", http.StatusBadRequest)
+		return
+	}
+
 	var id int
-	var passwordHash string
-	err := database.DB.QueryRow("SELECT id, password_hash FROM users WHERE email = ?", email).Scan(&id, &passwordHash)
+	var password string
+	err := database.DB.QueryRow("SELECT id, password FROM users WHERE email = ?", email).Scan(&id, &password)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
@@ -101,13 +132,12 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверка пароля
-	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(passwordFromForm))
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
 
-	// Здесь потом добавим cookie-сессию
+	// TODO: добавить cookie-сессию
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
