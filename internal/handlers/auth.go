@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"database/sql"
+	"forum/internal/database"
 	internal "forum/internal/template"
 	"log"
 	"net/http"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -37,32 +41,73 @@ func GetLoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
+	if err := r.ParseForm(); err != nil {
 		http.Error(w, "", http.StatusBadRequest)
 		log.Println("form parse error:", err)
 		return
 	}
 
-	// name := r.Form.Get("name")
-	// email := r.Form.Get("email")
-	// password := r.Form.Get("password")
+	username := r.Form.Get("name")
+	email := r.Form.Get("email")
+	password := r.Form.Get("password")
+	// log.Printf("Register: name=%s, email=%s", name, email) // временно, для отладки
+
+	var exists bool
+	err := database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		http.Error(w, "Email already taken", http.StatusBadRequest)
+		return
+	}
+
+	// hashing password
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Error encrypting password", http.StatusInternalServerError)
+		return
+	}
+
+	// Saving user
+	_, err = database.DB.Exec("INSERT INTO users(username, email, password_hash) VALUES (?, ?, ?)", username, email, string(hash))
+	if err != nil {
+		http.Error(w, "Database insert error", http.StatusInternalServerError)
+		return
+	}
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
-	internal.RenderTemplate(w, "login.html", nil)
 }
 
 func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
+	if err := r.ParseForm(); err != nil {
 		http.Error(w, "", http.StatusBadRequest)
 		log.Println("form parse error:", err)
 		return
 	}
 
-	// email := r.Form.Get("email")
-	// password := r.Form.Get("password")
+	email := r.Form.Get("email")
+	password := r.Form.Get("password")
+	// log.Printf("Login: email=%s", email)
+	var id int
+	var passwordHash string
+	err := database.DB.QueryRow("SELECT id, password_hash FROM users WHERE email = ?", email).Scan(&id, &passwordHash)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	} else if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
 
+	// Проверка пароля
+	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+	if err != nil {
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		return
+	}
+
+	// Здесь потом добавим cookie-сессию
 	http.Redirect(w, r, "/", http.StatusSeeOther)
-	internal.RenderTemplate(w, "index.html", nil)
 }

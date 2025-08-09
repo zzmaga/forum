@@ -8,11 +8,13 @@ import (
 )
 
 func main() {
-	database.InitDB()
+	database.InitDB("forum.db")
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handlers.IndexHandler)
 	mux.HandleFunc("/register", handlers.RegisterHandler)
 	mux.HandleFunc("/login", handlers.LoginHandler)
+
 	log.Println("Server started at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

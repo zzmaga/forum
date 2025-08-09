@@ -9,9 +9,9 @@ import (
 
 var DB *sql.DB
 
-func InitDB() {
+func InitDB(filepath string) {
 	var err error
-	DB, err = sql.Open("sqlite3", "./forum.db")
+	DB, err = sql.Open("sqlite3", filepath)
 	if err != nil {
 		log.Fatal("Error opening DB:", err)
 	}
