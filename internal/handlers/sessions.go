@@ -1,0 +1,50 @@
+package handlers
+
+import (
+	"database/sql"
+	"forum/internal/database"
+	"net/http"
+	"time"
+)
+
+func GetUserIDFromSession(r *http.Request) (int, error) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		return 0, err
+	}
+
+	var userID int
+	var expiresAt time.Time
+	err = database.DB.QueryRow(
+		"SELECT user_id, expires_at FROM sessions WHERE id = ?",
+		cookie.Value,
+	).Scan(&userID, &expiresAt)
+	if err != nil {
+		return 0, err
+	}
+
+	if time.Now().After(expiresAt) {
+		// Сессия просрочена
+		return 0, sql.ErrNoRows
+	}
+
+	return userID, nil
+}
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session_id")
+	if err == nil {
+		database.DB.Exec("DELETE FROM sessions WHERE id = ?", cookie.Value)
+	}
+
+	// удаляем cookie у клиента
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+	})
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}

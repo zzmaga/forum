@@ -6,6 +6,9 @@ import (
 	internal "forum/internal/template"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -53,9 +56,13 @@ func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := r.Form.Get("name")
+	username := r.Form.Get("username")
 	email := r.Form.Get("email")
 	password := r.Form.Get("password")
+
+	log.Println("username:", username)
+	log.Println("email:", email)
+	log.Println("password:", password)
 
 	if username == "" || email == "" || password == "" {
 		http.Error(w, "All fields are required", http.StatusBadRequest)
@@ -138,6 +145,29 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: добавить cookie-сессию
+	// Генерируем UUID сессии
+	sessionID := uuid.New().String()
+	expiresAt := time.Now().Add(24 * time.Hour) // сессия живёт 1 день
+
+	// Сохраняем в БД
+	_, err = database.DB.Exec(
+		"INSERT INTO sessions(id, user_id, expires_at) VALUES (?, ?, ?)",
+		sessionID, id, expiresAt,
+	)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Устанавливаем cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    sessionID,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: true,
+	})
+
+	// Перенаправляем на главную
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

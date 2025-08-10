@@ -21,6 +21,8 @@ func InitDB(filepath string) {
 	}
 
 	createUsersTable()
+	createSessionsTable()
+	log.Println("Database initialized successfully")
 }
 
 func createUsersTable() {
@@ -35,5 +37,19 @@ func createUsersTable() {
 	_, err := DB.Exec(query)
 	if err != nil {
 		log.Fatal("Error creating users table:", err)
+	}
+}
+
+func createSessionsTable() {
+	query := `
+	CREATE TABLE IF NOT EXISTS sessions (
+		id TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL,
+		expires_at DATETIME NOT NULL,
+		FOREIGN KEY (user_id) REFERENCES users(id)
+	);`
+	_, err := DB.Exec(query)
+	if err != nil {
+		log.Fatal("Error creating sessions table:", err)
 	}
 }
