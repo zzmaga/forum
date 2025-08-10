@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"forum/internal/database"
+	"log"
 	"net/http"
 	"time"
 )
@@ -34,7 +35,10 @@ func GetUserIDFromSession(r *http.Request) (int, error) {
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_id")
 	if err == nil {
-		database.DB.Exec("DELETE FROM sessions WHERE id = ?", cookie.Value)
+		_, err := database.DB.Exec("DELETE FROM sessions WHERE id = ?", cookie.Value)
+		if err != nil {
+			log.Printf("Warning: failed to delete session: %v", err)
+		}
 	}
 
 	// удаляем cookie у клиента

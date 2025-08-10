@@ -16,7 +16,7 @@ func main() {
 	fs := http.FileServer(http.Dir("ui/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// Маршруты
+	// routes
 	mux.HandleFunc("/", handlers.IndexHandler)
 	mux.HandleFunc("/register", handlers.RegisterHandler)
 	mux.HandleFunc("/login", handlers.LoginHandler)

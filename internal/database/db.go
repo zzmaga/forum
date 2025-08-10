@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"forum/internal/models"
 	"log"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -36,7 +37,10 @@ func InitDB(filepath string) {
 func insertDefaultCategories() {
 	categories := []string{"Общие", "Технологии", "Наука", "Искусство", "Спорт", "Политика"}
 	for _, cat := range categories {
-		DB.Exec("INSERT OR IGNORE INTO categories(name) VALUES (?)", cat)
+		_, err := DB.Exec("INSERT OR IGNORE INTO categories(name) VALUES (?)", cat)
+		if err != nil {
+			log.Printf("Warning: failed to insert category %s: %v", cat, err)
+		}
 	}
 }
 
@@ -147,6 +151,28 @@ func createLikesTable() {
 }
 
 // Функции для работы с постами
+func GetPostByID(postID int) (*models.Post, error) {
+	row := DB.QueryRow(`
+		SELECT p.id, p.title, p.content, p.created_at, u.username, 
+		       COUNT(DISTINCT c.id) as comment_count,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		LEFT JOIN comments c ON p.id = c.post_id
+		LEFT JOIN likes l ON p.id = l.post_id
+		WHERE p.id = ?
+		GROUP BY p.id
+	`, postID)
+
+	var p models.Post
+	err := row.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 func CreatePost(userID int, title, content string) (int64, error) {
 	result, err := DB.Exec("INSERT INTO posts(user_id, title, content) VALUES (?, ?, ?)", userID, title, content)
 	if err != nil {
@@ -155,7 +181,7 @@ func CreatePost(userID int, title, content string) (int64, error) {
 	return result.LastInsertId()
 }
 
-func GetPosts() ([]Post, error) {
+func GetPosts() ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username, 
 		       COUNT(DISTINCT c.id) as comment_count,
@@ -173,9 +199,9 @@ func GetPosts() ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	var posts []models.Post
 	for rows.Next() {
-		var p Post
+		var p models.Post
 		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
 		if err != nil {
 			return nil, err
@@ -185,7 +211,7 @@ func GetPosts() ([]Post, error) {
 	return posts, nil
 }
 
-func GetPostsByCategory(categoryID int) ([]Post, error) {
+func GetPostsByCategory(categoryID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
@@ -205,9 +231,9 @@ func GetPostsByCategory(categoryID int) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	var posts []models.Post
 	for rows.Next() {
-		var p Post
+		var p models.Post
 		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
 		if err != nil {
 			return nil, err
@@ -217,7 +243,7 @@ func GetPostsByCategory(categoryID int) ([]Post, error) {
 	return posts, nil
 }
 
-func GetPostsByUser(userID int) ([]Post, error) {
+func GetPostsByUser(userID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
@@ -236,9 +262,9 @@ func GetPostsByUser(userID int) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	var posts []models.Post
 	for rows.Next() {
-		var p Post
+		var p models.Post
 		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
 		if err != nil {
 			return nil, err
@@ -248,7 +274,7 @@ func GetPostsByUser(userID int) ([]Post, error) {
 	return posts, nil
 }
 
-func GetLikedPostsByUser(userID int) ([]Post, error) {
+func GetLikedPostsByUser(userID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
@@ -268,9 +294,9 @@ func GetLikedPostsByUser(userID int) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	var posts []Post
+	var posts []models.Post
 	for rows.Next() {
-		var p Post
+		var p models.Post
 		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
 		if err != nil {
 			return nil, err
@@ -286,7 +312,27 @@ func CreateComment(userID, postID int, content string) error {
 	return err
 }
 
-func GetCommentsByPost(postID int) ([]Comment, error) {
+func GetCommentByID(commentID int) (*models.Comment, error) {
+	row := DB.QueryRow(`
+		SELECT c.id, c.content, c.created_at, u.username,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM comments c
+		JOIN users u ON c.user_id = u.id
+		LEFT JOIN likes l ON c.id = l.comment_id
+		WHERE c.id = ?
+		GROUP BY c.id
+	`, commentID)
+
+	var c models.Comment
+	err := row.Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.Likes, &c.Dislikes)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func GetCommentsByPost(postID int) ([]models.Comment, error) {
 	rows, err := DB.Query(`
 		SELECT c.id, c.content, c.created_at, u.username,
 		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
@@ -303,9 +349,9 @@ func GetCommentsByPost(postID int) ([]Comment, error) {
 	}
 	defer rows.Close()
 
-	var comments []Comment
+	var comments []models.Comment
 	for rows.Next() {
-		var c Comment
+		var c models.Comment
 		err := rows.Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.Likes, &c.Dislikes)
 		if err != nil {
 			return nil, err
@@ -329,16 +375,16 @@ func ToggleLike(userID, postID, commentID int, isLike bool) error {
 }
 
 // Функции для работы с категориями
-func GetCategories() ([]Category, error) {
+func GetCategories() ([]models.Category, error) {
 	rows, err := DB.Query("SELECT id, name FROM categories ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var categories []Category
+	var categories []models.Category
 	for rows.Next() {
-		var c Category
+		var c models.Category
 		err := rows.Scan(&c.ID, &c.Name)
 		if err != nil {
 			return nil, err
@@ -351,30 +397,4 @@ func GetCategories() ([]Category, error) {
 func AddCategoryToPost(postID, categoryID int) error {
 	_, err := DB.Exec("INSERT INTO post_categories(post_id, category_id) VALUES (?, ?)", postID, categoryID)
 	return err
-}
-
-// Структуры данных
-type Post struct {
-	ID           int
-	Title        string
-	Content      string
-	CreatedAt    string
-	Username     string
-	CommentCount int
-	Likes        int
-	Dislikes     int
-}
-
-type Comment struct {
-	ID        int
-	Content   string
-	CreatedAt string
-	Username  string
-	Likes     int
-	Dislikes  int
-}
-
-type Category struct {
-	ID   int
-	Name string
 }

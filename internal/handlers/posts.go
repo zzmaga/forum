@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"forum/internal/database"
+	"forum/internal/models"
 	internal "forum/internal/template"
 	"net/http"
 	"strconv"
@@ -98,23 +100,14 @@ func ViewPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем пост (упрощенно - в реальном проекте нужна отдельная функция)
-	posts, err := database.GetPosts()
+	// Получаем пост по ID
+	targetPost, err := database.GetPostByID(postID)
 	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-
-	var targetPost *database.Post
-	for _, post := range posts {
-		if post.ID == postID {
-			targetPost = &post
-			break
+		if err == sql.ErrNoRows {
+			http.Error(w, "Post not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
 		}
-	}
-
-	if targetPost == nil {
-		http.Error(w, "Post not found", http.StatusNotFound)
 		return
 	}
 
@@ -164,6 +157,17 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверяем, что пост существует
+	_, err = database.GetPostByID(postID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Post not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
 	err = database.CreateComment(userID, postID, content)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -204,6 +208,17 @@ func LikeHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid post ID", http.StatusBadRequest)
 			return
 		}
+
+		// Проверяем, что пост существует
+		_, err = database.GetPostByID(postID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Post not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Database error", http.StatusInternalServerError)
+			}
+			return
+		}
 	}
 
 	if commentIDStr != "" {
@@ -213,12 +228,26 @@ func LikeHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid comment ID", http.StatusBadRequest)
 			return
 		}
+
+		// Проверяем, что комментарий существует
+		_, err = database.GetCommentByID(commentID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Comment not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Database error", http.StatusInternalServerError)
+			}
+			return
+		}
 	}
 
 	if isLikeStr == "1" {
 		isLike = true
-	} else {
+	} else if isLikeStr == "0" {
 		isLike = false
+	} else {
+		http.Error(w, "Invalid like value", http.StatusBadRequest)
+		return
 	}
 
 	err = database.ToggleLike(userID, postID, commentID, isLike)
@@ -240,7 +269,7 @@ func FilterPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filterType := r.URL.Query().Get("type")
-	var posts []database.Post
+	var posts []models.Post
 	var err error
 
 	switch filterType {
@@ -250,7 +279,8 @@ func FilterPostsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Category ID required", http.StatusBadRequest)
 			return
 		}
-		categoryID, err := strconv.Atoi(categoryIDStr)
+		var categoryID int
+		categoryID, err = strconv.Atoi(categoryIDStr)
 		if err != nil {
 			http.Error(w, "Invalid category ID", http.StatusBadRequest)
 			return
