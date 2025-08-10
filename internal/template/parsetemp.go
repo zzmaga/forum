@@ -10,7 +10,7 @@ var templates *template.Template
 
 func init() {
 	var err error
-	templates, err = template.ParseGlob("templates/*.html")
+	templates, err = template.ParseGlob("ui/html/*.html")
 	if err != nil {
 		log.Fatal(err)
 	}
