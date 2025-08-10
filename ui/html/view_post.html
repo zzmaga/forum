@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum - {{.Post.Title}}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header>
+        <h1><a href='/'>Welcome to Forum</a></h1>
+        <nav>
+            <a href="/">Главная</a> |
+            <a href="/create-post">Создать пост</a> |
+            <a href="/logout">Выйти</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="post-detail">
+            <h1>{{.Post.Title}}</h1>
+            <div class="post-meta">
+                <span class="author">Автор: {{.Post.Username}}</span>
+                <span class="date">{{.Post.CreatedAt}}</span>
+            </div>
+            <div class="post-content">
+                {{.Post.Content}}
+            </div>
+            <div class="post-stats">
+                <span class="comments">💬 {{.Post.CommentCount}}</span>
+                <span class="likes">👍 {{.Post.Likes}}</span>
+                <span class="dislikes">👎 {{.Post.Dislikes}}</span>
+            </div>
+        </div>
+
+        <!-- Комментарии -->
+        <div class="comments-section">
+            <h3>Комментарии</h3>
+            
+            {{if .Comments}}
+                {{range .Comments}}
+                    <div class="comment">
+                        <div class="comment-meta">
+                            <span class="author">{{.Username}}</span>
+                            <span class="date">{{.CreatedAt}}</span>
+                        </div>
+                        <div class="comment-content">
+                            {{.Content}}
+                        </div>
+                        <div class="comment-stats">
+                            <span class="likes">👍 {{.Likes}}</span>
+                            <span class="dislikes">👎 {{.Dislikes}}</span>
+                        </div>
+                    </div>
+                {{end}}
+            {{else}}
+                <p>Комментариев пока нет.</p>
+            {{end}}
+
+            <!-- Форма добавления комментария -->
+            <div class="add-comment">
+                <h4>Добавить комментарий</h4>
+                <form method="POST" action="/comment" class="comment-form">
+                    <input type="hidden" name="post_id" value="{{.Post.ID}}">
+                    <div class="form-group">
+                        <textarea name="content" rows="4" placeholder="Ваш комментарий..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>Powered by <a href='https://t.me/zz_maga'>Magzhan</a></footer>
+</body>
+</html> 

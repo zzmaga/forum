@@ -14,7 +14,27 @@ import (
 )
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	internal.RenderTemplate(w, "index.html", nil)
+	posts, err := database.GetPosts()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	categories, err := database.GetCategories()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	userID, _ := GetUserIDFromSession(r)
+
+	data := map[string]interface{}{
+		"Posts":      posts,
+		"Categories": categories,
+		"UserID":     userID,
+	}
+
+	internal.RenderTemplate(w, "index.html", data)
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {

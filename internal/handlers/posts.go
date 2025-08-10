@@ -1,0 +1,298 @@
+package handlers
+
+import (
+	"forum/internal/database"
+	internal "forum/internal/template"
+	"net/http"
+	"strconv"
+)
+
+func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		GetCreatePostHandler(w, r)
+	case http.MethodPost:
+		PostCreatePostHandler(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+}
+
+func GetCreatePostHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := GetUserIDFromSession(r)
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	categories, err := database.GetCategories()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Categories": categories,
+		"UserID":     userID,
+	}
+
+	internal.RenderTemplate(w, "create_post.html", data)
+}
+
+func PostCreatePostHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := GetUserIDFromSession(r)
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	title := r.Form.Get("title")
+	content := r.Form.Get("content")
+	categories := r.Form["categories"]
+
+	if title == "" || content == "" {
+		http.Error(w, "Title and content are required", http.StatusBadRequest)
+		return
+	}
+
+	postID, err := database.CreatePost(userID, title, content)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Добавляем категории к посту
+	for _, catIDStr := range categories {
+		if catIDStr != "" {
+			catID, err := strconv.Atoi(catIDStr)
+			if err == nil {
+				database.AddCategoryToPost(int(postID), catID)
+			}
+		}
+	}
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func ViewPostHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	postIDStr := r.URL.Query().Get("id")
+	if postIDStr == "" {
+		http.Error(w, "Post ID required", http.StatusBadRequest)
+		return
+	}
+
+	postID, err := strconv.Atoi(postIDStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем пост (упрощенно - в реальном проекте нужна отдельная функция)
+	posts, err := database.GetPosts()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	var targetPost *database.Post
+	for _, post := range posts {
+		if post.ID == postID {
+			targetPost = &post
+			break
+		}
+	}
+
+	if targetPost == nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	// Получаем комментарии
+	comments, err := database.GetCommentsByPost(postID)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Post":     targetPost,
+		"Comments": comments,
+	}
+
+	internal.RenderTemplate(w, "view_post.html", data)
+}
+
+func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := GetUserIDFromSession(r)
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	postIDStr := r.Form.Get("post_id")
+	content := r.Form.Get("content")
+
+	if postIDStr == "" || content == "" {
+		http.Error(w, "Post ID and content are required", http.StatusBadRequest)
+		return
+	}
+
+	postID, err := strconv.Atoi(postIDStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	err = database.CreateComment(userID, postID, content)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/post?id="+postIDStr, http.StatusSeeOther)
+}
+
+func LikeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, err := GetUserIDFromSession(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	postIDStr := r.Form.Get("post_id")
+	commentIDStr := r.Form.Get("comment_id")
+	isLikeStr := r.Form.Get("is_like")
+
+	var postID, commentID int
+	var isLike bool
+
+	if postIDStr != "" {
+		var err error
+		postID, err = strconv.Atoi(postIDStr)
+		if err != nil {
+			http.Error(w, "Invalid post ID", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if commentIDStr != "" {
+		var err error
+		commentID, err = strconv.Atoi(commentIDStr)
+		if err != nil {
+			http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if isLikeStr == "1" {
+		isLike = true
+	} else {
+		isLike = false
+	}
+
+	err = database.ToggleLike(userID, postID, commentID, isLike)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем JSON ответ
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
+}
+
+func FilterPostsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	filterType := r.URL.Query().Get("type")
+	var posts []database.Post
+	var err error
+
+	switch filterType {
+	case "category":
+		categoryIDStr := r.URL.Query().Get("category_id")
+		if categoryIDStr == "" {
+			http.Error(w, "Category ID required", http.StatusBadRequest)
+			return
+		}
+		categoryID, err := strconv.Atoi(categoryIDStr)
+		if err != nil {
+			http.Error(w, "Invalid category ID", http.StatusBadRequest)
+			return
+		}
+		posts, err = database.GetPostsByCategory(categoryID)
+
+	case "user":
+		userID, err := GetUserIDFromSession(r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		posts, err = database.GetPostsByUser(userID)
+
+	case "liked":
+		userID, err := GetUserIDFromSession(r)
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		posts, err = database.GetLikedPostsByUser(userID)
+
+	default:
+		posts, err = database.GetPosts()
+	}
+
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	categories, err := database.GetCategories()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Posts":      posts,
+		"Categories": categories,
+		"FilterType": filterType,
+	}
+
+	internal.RenderTemplate(w, "index.html", data)
+}

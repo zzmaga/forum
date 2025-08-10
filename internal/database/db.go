@@ -27,6 +27,17 @@ func InitDB(filepath string) {
 	createPostCategoriesTable()
 	createCommentsTable()
 	createLikesTable()
+
+	// Добавляем базовые категории
+	insertDefaultCategories()
+}
+
+// Добавляем базовые категории
+func insertDefaultCategories() {
+	categories := []string{"Общие", "Технологии", "Наука", "Искусство", "Спорт", "Политика"}
+	for _, cat := range categories {
+		DB.Exec("INSERT OR IGNORE INTO categories(name) VALUES (?)", cat)
+	}
 }
 
 func createUsersTable() {
@@ -133,4 +144,237 @@ func createLikesTable() {
 	if err != nil {
 		log.Fatal("Error creating likes table:", err)
 	}
+}
+
+// Функции для работы с постами
+func CreatePost(userID int, title, content string) (int64, error) {
+	result, err := DB.Exec("INSERT INTO posts(user_id, title, content) VALUES (?, ?, ?)", userID, title, content)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func GetPosts() ([]Post, error) {
+	rows, err := DB.Query(`
+		SELECT p.id, p.title, p.content, p.created_at, u.username, 
+		       COUNT(DISTINCT c.id) as comment_count,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		LEFT JOIN comments c ON p.id = c.post_id
+		LEFT JOIN likes l ON p.id = l.post_id
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
+func GetPostsByCategory(categoryID int) ([]Post, error) {
+	rows, err := DB.Query(`
+		SELECT p.id, p.title, p.content, p.created_at, u.username,
+		       COUNT(DISTINCT c.id) as comment_count,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		JOIN post_categories pc ON p.id = pc.post_id
+		LEFT JOIN comments c ON p.id = c.post_id
+		LEFT JOIN likes l ON p.id = l.post_id
+		WHERE pc.category_id = ?
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+	`, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
+func GetPostsByUser(userID int) ([]Post, error) {
+	rows, err := DB.Query(`
+		SELECT p.id, p.title, p.content, p.created_at, u.username,
+		       COUNT(DISTINCT c.id) as comment_count,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		LEFT JOIN comments c ON p.id = c.post_id
+		LEFT JOIN likes l ON p.id = l.post_id
+		WHERE p.user_id = ?
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
+func GetLikedPostsByUser(userID int) ([]Post, error) {
+	rows, err := DB.Query(`
+		SELECT p.id, p.title, p.content, p.created_at, u.username,
+		       COUNT(DISTINCT c.id) as comment_count,
+		       SUM(CASE WHEN l2.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l2.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		JOIN likes l ON p.id = l.post_id
+		LEFT JOIN comments c ON p.id = c.post_id
+		LEFT JOIN likes l2 ON p.id = l2.post_id
+		WHERE l.user_id = ? AND l.is_like = 1
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		err := rows.Scan(&p.ID, &p.Title, &p.Content, &p.CreatedAt, &p.Username, &p.CommentCount, &p.Likes, &p.Dislikes)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	return posts, nil
+}
+
+// Функции для работы с комментариями
+func CreateComment(userID, postID int, content string) error {
+	_, err := DB.Exec("INSERT INTO comments(user_id, post_id, content) VALUES (?, ?, ?)", userID, postID, content)
+	return err
+}
+
+func GetCommentsByPost(postID int) ([]Comment, error) {
+	rows, err := DB.Query(`
+		SELECT c.id, c.content, c.created_at, u.username,
+		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
+		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		FROM comments c
+		JOIN users u ON c.user_id = u.id
+		LEFT JOIN likes l ON c.id = l.comment_id
+		WHERE c.post_id = ?
+		GROUP BY c.id
+		ORDER BY c.created_at ASC
+	`, postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var c Comment
+		err := rows.Scan(&c.ID, &c.Content, &c.CreatedAt, &c.Username, &c.Likes, &c.Dislikes)
+		if err != nil {
+			return nil, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, nil
+}
+
+// Функции для работы с лайками
+func ToggleLike(userID, postID, commentID int, isLike bool) error {
+	// Сначала удаляем существующий лайк/дизлайк
+	_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND post_id = ? AND comment_id = ?", userID, postID, commentID)
+	if err != nil {
+		return err
+	}
+
+	// Добавляем новый лайк/дизлайк
+	_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, ?, ?, ?)", userID, postID, commentID, isLike)
+	return err
+}
+
+// Функции для работы с категориями
+func GetCategories() ([]Category, error) {
+	rows, err := DB.Query("SELECT id, name FROM categories ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []Category
+	for rows.Next() {
+		var c Category
+		err := rows.Scan(&c.ID, &c.Name)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, c)
+	}
+	return categories, nil
+}
+
+func AddCategoryToPost(postID, categoryID int) error {
+	_, err := DB.Exec("INSERT INTO post_categories(post_id, category_id) VALUES (?, ?)", postID, categoryID)
+	return err
+}
+
+// Структуры данных
+type Post struct {
+	ID           int
+	Title        string
+	Content      string
+	CreatedAt    string
+	Username     string
+	CommentCount int
+	Likes        int
+	Dislikes     int
+}
+
+type Comment struct {
+	ID        int
+	Content   string
+	CreatedAt string
+	Username  string
+	Likes     int
+	Dislikes  int
+}
+
+type Category struct {
+	ID   int
+	Name string
 }

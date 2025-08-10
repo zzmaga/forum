@@ -2,17 +2,79 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forum - Главная</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <header>
         <h1><a href='/'>Welcome to Forum</a></h1>
+        <nav>
+            {{if .UserID}}
+                <a href="/create-post">Создать пост</a> |
+                <a href="/filter?type=user">Мои посты</a> |
+                <a href="/filter?type=liked">Понравившиеся</a> |
+                <a href="/logout">Выйти</a>
+            {{else}}
+                <a href="/register">Регистрация</a> | <a href="/login">Войти</a>
+            {{end}}
+        </nav>
     </header>
+
     <main>
-        <h2>Latest Snippets</h2>
-        <p>There's nothing to see here yet!</p>
+        <!-- Фильтры -->
+        <div class="filters">
+            <h3>Фильтры:</h3>
+            <a href="/" class="filter-btn">Все посты</a>
+            {{range .Categories}}
+                <a href="/filter?type=category&category_id={{.ID}}" class="filter-btn">{{.Name}}</a>
+            {{end}}
+        </div>
+
+        <!-- Список постов -->
+        <div class="posts">
+            {{if .Posts}}
+                {{range .Posts}}
+                    <article class="post">
+                        <h3><a href="/post?id={{.ID}}">{{.Title}}</a></h3>
+                        <div class="post-meta">
+                            <span class="author">Автор: {{.Username}}</span>
+                            <span class="date">{{.CreatedAt}}</span>
+                        </div>
+                        <div class="post-content">
+                            {{if gt (len .Content) 200}}
+                                {{slice .Content 0 200}}...
+                            {{else}}
+                                {{.Content}}
+                            {{end}}
+                        </div>
+                        <div class="post-stats">
+                            <span class="comments">💬 {{.CommentCount}}</span>
+                            <span class="likes">👍 {{.Likes}}</span>
+                            <span class="dislikes">👎 {{.Dislikes}}</span>
+                        </div>
+                        {{if $.UserID}}
+                            <div class="post-actions">
+                                <form method="POST" action="/like" style="display: inline;">
+                                    <input type="hidden" name="post_id" value="{{.ID}}">
+                                    <input type="hidden" name="is_like" value="1">
+                                    <button type="submit" class="like-btn">👍</button>
+                                </form>
+                                <form method="POST" action="/like" style="display: inline;">
+                                    <input type="hidden" name="post_id" value="{{.ID}}">
+                                    <input type="hidden" name="is_like" value="0">
+                                    <button type="submit" class="dislike-btn">👎</button>
+                                </form>
+                            </div>
+                        {{end}}
+                    </article>
+                {{end}}
+            {{else}}
+                <p>Постов пока нет. {{if .UserID}}<a href="/create-post">Создайте первый!</a>{{end}}</p>
+            {{end}}
+        </div>
     </main>
-    <p><a href="/register">Регистрация</a> | <a href="/login">Войти</a></p>
+
     <footer>Powered by <a href='https://t.me/zz_maga'>Magzhan</a></footer>
 </body>
 </html>

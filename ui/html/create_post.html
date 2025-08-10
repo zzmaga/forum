@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum - Создать пост</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header>
+        <h1><a href='/'>Welcome to Forum</a></h1>
+        <nav>
+            <a href="/">Главная</a> |
+            <a href="/create-post">Создать пост</a> |
+            <a href="/logout">Выйти</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Создать новый пост</h2>
+        
+        <form method="POST" action="/create-post" class="create-post-form">
+            <div class="form-group">
+                <label for="title">Заголовок:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+
+            <div class="form-group">
+                <label for="content">Содержание:</label>
+                <textarea id="content" name="content" rows="10" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Категории:</label>
+                <div class="categories-checkboxes">
+                    {{range .Categories}}
+                        <label class="category-checkbox">
+                            <input type="checkbox" name="categories" value="{{.ID}}">
+                            {{.Name}}
+                        </label>
+                    {{end}}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Создать пост</button>
+                <a href="/" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
+    </main>
+
+    <footer>Powered by <a href='https://t.me/zz_maga'>Magzhan</a></footer>
+</body>
+</html> 
