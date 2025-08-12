@@ -27,6 +27,6 @@ func main() {
 	mux.HandleFunc("/like", handlers.LikeHandler)
 	mux.HandleFunc("/filter", handlers.FilterPostsHandler)
 
-	log.Println("Server started at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Println("Server started at http://localhost:8081")
+	log.Fatal(http.ListenAndServe(":8081", mux))
 }

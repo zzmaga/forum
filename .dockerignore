@@ -1,6 +1,6 @@
 .git
 .gitignore
-README.md
-forum.db
+.dockerignore
+*.md
 *.log
-.DS_Store 
+.DS_Store
