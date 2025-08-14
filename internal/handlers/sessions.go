@@ -15,11 +15,17 @@ func GetUserIDFromSession(r *http.Request) (int, error) {
 	}
 
 	var userID int
-	var expiresAt time.Time
+	var expiresAtStr string
 	err = database.DB.QueryRow(
-		"SELECT user_id, expires_at FROM sessions WHERE id = ?",
+		"SELECT user_id, expired_at FROM sessions WHERE id = ?",
 		cookie.Value,
-	).Scan(&userID, &expiresAt)
+	).Scan(&userID, &expiresAtStr)
+
+	if err != nil {
+		return 0, err
+	}
+
+	expiresAt, err := time.Parse("2006-01-02 15:04:05", expiresAtStr)
 	if err != nil {
 		return 0, err
 	}

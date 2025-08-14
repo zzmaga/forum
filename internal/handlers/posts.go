@@ -5,6 +5,7 @@ import (
 	"forum/internal/database"
 	"forum/internal/models"
 	internal "forum/internal/template"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -72,9 +73,12 @@ func PostCreatePostHandler(w http.ResponseWriter, r *http.Request) {
 	// Добавляем категории к посту
 	for _, catIDStr := range categories {
 		if catIDStr != "" {
-			catID, err := strconv.Atoi(catIDStr)
-			if err == nil {
-				database.AddCategoryToPost(int(postID), catID)
+			catID, catErr := strconv.Atoi(catIDStr)
+			if catErr == nil {
+				catErr = database.AddCategoryToPost(int(postID), catID)
+				if catErr != nil {
+					log.Printf("Warning: failed to add category %s to post: %v", catIDStr, catErr)
+				}
 			}
 		}
 	}
@@ -288,16 +292,16 @@ func FilterPostsHandler(w http.ResponseWriter, r *http.Request) {
 		posts, err = database.GetPostsByCategory(categoryID)
 
 	case "user":
-		userID, err := GetUserIDFromSession(r)
-		if err != nil {
+		userID, userErr := GetUserIDFromSession(r)
+		if userErr != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 		posts, err = database.GetPostsByUser(userID)
 
 	case "liked":
-		userID, err := GetUserIDFromSession(r)
-		if err != nil {
+		userID, userErr := GetUserIDFromSession(r)
+		if userErr != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}

@@ -171,8 +171,8 @@ func PostLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Сохраняем в БД
 	_, err = database.DB.Exec(
-		"INSERT INTO sessions(id, user_id, expires_at) VALUES (?, ?, ?)",
-		sessionID, id, expiresAt,
+		"INSERT INTO sessions(id, user_id, expired_at) VALUES (?, ?, ?)",
+		sessionID, id, expiresAt.Format("2006-01-02 15:04:05"),
 	)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)

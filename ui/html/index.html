@@ -43,7 +43,7 @@
                         </div>
                         <div class="post-content">
                             {{if gt (len .Content) 200}}
-                                {{slice .Content 0 200}}...
+                                {{printf "%.200s" .Content}}...
                             {{else}}
                                 {{.Content}}
                             {{end}}

@@ -48,12 +48,12 @@ func GetPostByID(postID int) (*models.Post, error) {
 	row := DB.QueryRow(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username, 
 		       COUNT(DISTINCT c.id) as comment_count,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		LEFT JOIN comments c ON p.id = c.post_id
-		LEFT JOIN likes l ON p.id = l.post_id
+		LEFT JOIN likes l ON p.id = l.post_id AND l.comment_id IS NULL
 		WHERE p.id = ?
 		GROUP BY p.id
 	`, postID)
@@ -67,7 +67,7 @@ func GetPostByID(postID int) (*models.Post, error) {
 }
 
 func CreatePost(userID int, title, content string) (int64, error) {
-	result, err := DB.Exec("INSERT INTO posts(user_id, title, content) VALUES (?, ?, ?)", userID, title, content)
+	result, err := DB.Exec("INSERT INTO posts(user_id, title, content, created_at) VALUES (?, ?, ?, datetime('now'))", userID, title, content)
 	if err != nil {
 		return 0, err
 	}
@@ -78,12 +78,12 @@ func GetPosts() ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username, 
 		       COUNT(DISTINCT c.id) as comment_count,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		LEFT JOIN comments c ON p.id = c.post_id
-		LEFT JOIN likes l ON p.id = l.post_id
+		LEFT JOIN likes l ON p.id = l.post_id AND l.comment_id IS NULL
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
 	`)
@@ -108,13 +108,13 @@ func GetPostsByCategory(categoryID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		JOIN post_categories pc ON p.id = pc.post_id
 		LEFT JOIN comments c ON p.id = c.post_id
-		LEFT JOIN likes l ON p.id = l.post_id
+		LEFT JOIN likes l ON p.id = l.post_id AND l.comment_id IS NULL
 		WHERE pc.category_id = ?
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
@@ -140,12 +140,12 @@ func GetPostsByUser(userID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		LEFT JOIN comments c ON p.id = c.post_id
-		LEFT JOIN likes l ON p.id = l.post_id
+		LEFT JOIN likes l ON p.id = l.post_id AND l.comment_id IS NULL
 		WHERE p.user_id = ?
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
@@ -171,13 +171,13 @@ func GetLikedPostsByUser(userID int) ([]models.Post, error) {
 	rows, err := DB.Query(`
 		SELECT p.id, p.title, p.content, p.created_at, u.username,
 		       COUNT(DISTINCT c.id) as comment_count,
-		       SUM(CASE WHEN l2.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l2.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l2.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l2.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
-		JOIN likes l ON p.id = l.post_id
+		JOIN likes l ON p.id = l.post_id AND l.comment_id IS NULL
 		LEFT JOIN comments c ON p.id = c.post_id
-		LEFT JOIN likes l2 ON p.id = l2.post_id
+		LEFT JOIN likes l2 ON p.id = l2.post_id AND l2.comment_id IS NULL
 		WHERE l.user_id = ? AND l.is_like = 1
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
@@ -201,18 +201,18 @@ func GetLikedPostsByUser(userID int) ([]models.Post, error) {
 
 // Функции для работы с комментариями
 func CreateComment(userID, postID int, content string) error {
-	_, err := DB.Exec("INSERT INTO comments(user_id, post_id, content) VALUES (?, ?, ?)", userID, postID, content)
+	_, err := DB.Exec("INSERT INTO comments(user_id, post_id, content, created_at) VALUES (?, ?, ?, datetime('now'))", userID, postID, content)
 	return err
 }
 
 func GetCommentByID(commentID int) (*models.Comment, error) {
 	row := DB.QueryRow(`
 		SELECT c.id, c.content, c.created_at, u.username,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
-		LEFT JOIN likes l ON c.id = l.comment_id
+		LEFT JOIN likes l ON c.id = l.comment_id AND l.post_id IS NULL
 		WHERE c.id = ?
 		GROUP BY c.id
 	`, commentID)
@@ -228,11 +228,11 @@ func GetCommentByID(commentID int) (*models.Comment, error) {
 func GetCommentsByPost(postID int) ([]models.Comment, error) {
 	rows, err := DB.Query(`
 		SELECT c.id, c.content, c.created_at, u.username,
-		       SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END) as likes,
-		       SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END) as dislikes
+		       COALESCE(SUM(CASE WHEN l.is_like = 1 THEN 1 ELSE 0 END), 0) as likes,
+		       COALESCE(SUM(CASE WHEN l.is_like = 0 THEN 1 ELSE 0 END), 0) as dislikes
 		FROM comments c
 		JOIN users u ON c.user_id = u.id
-		LEFT JOIN likes l ON c.id = l.comment_id
+		LEFT JOIN likes l ON c.id = l.comment_id AND l.post_id IS NULL
 		WHERE c.post_id = ?
 		GROUP BY c.id
 		ORDER BY c.created_at ASC
@@ -257,13 +257,24 @@ func GetCommentsByPost(postID int) ([]models.Comment, error) {
 // Функции для работы с лайками
 func ToggleLike(userID, postID, commentID int, isLike bool) error {
 	// Сначала удаляем существующий лайк/дизлайк
-	_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND post_id = ? AND comment_id = ?", userID, postID, commentID)
+	_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND ((post_id = ? AND comment_id IS NULL) OR (comment_id = ? AND post_id IS NULL))", userID, postID, commentID)
 	if err != nil {
 		return err
 	}
 
 	// Добавляем новый лайк/дизлайк
-	_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, ?, ?, ?)", userID, postID, commentID, isLike)
+	var isLikeInt int
+	if isLike {
+		isLikeInt = 1
+	} else {
+		isLikeInt = 0
+	}
+
+	if postID > 0 {
+		_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, ?, NULL, ?)", userID, postID, isLikeInt)
+	} else {
+		_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, NULL, ?, ?)", userID, commentID, isLikeInt)
+	}
 	return err
 }
 
