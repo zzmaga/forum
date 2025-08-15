@@ -1,0 +1,9 @@
+{{ define "content" }}
+{{ with .Post }}
+  <article class="post">
+    <h1>{{ .Title }}</h1>
+    <p>{{ .Content }}</p>
+  </article>
+{{ end }}
+{{ end }}
+

@@ -1,31 +1,45 @@
 package main
 
 import (
-	database "forum/internal"
 	"log"
-	"net/http"
+
+	"forum/architecture/repository"
+	"forum/architecture/service"
+	wh "forum/architecture/web/handler"
+	"forum/architecture/web/server"
+	database "forum/internal"
 )
 
 func main() {
-	database.InitDB("forum.db")
+	// init db with architecture migrations
+	db, err := database.InitDB("forum.db")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	mux := http.NewServeMux()
+	// build repo and service
+	repo := repository.NewRepo(db)
+	svc := service.NewService(repo)
 
-	// Статические файлы
-	fs := http.FileServer(http.Dir("ui/static"))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	// web handler configs
+	hcfg := &wh.Configs{TemplatesDir: "ui/html", StaticFilesDir: "ui/static"}
+	mh, err := wh.NewMainHandler(svc, hcfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	handler := mh.InitRoutes(hcfg)
 
-	// routes
-	mux.HandleFunc("/", handlers.IndexHandler)
-	mux.HandleFunc("/register", handlers.RegisterHandler)
-	mux.HandleFunc("/login", handlers.LoginHandler)
-	mux.HandleFunc("/logout", handlers.LogoutHandler)
-	mux.HandleFunc("/create-post", handlers.CreatePostHandler)
-	mux.HandleFunc("/post", handlers.ViewPostHandler)
-	mux.HandleFunc("/comment", handlers.CreateCommentHandler)
-	mux.HandleFunc("/like", handlers.LikeHandler)
-	mux.HandleFunc("/filter", handlers.FilterPostsHandler)
+	// server configs
+	srvCfg := &server.Configs{
+		Port:           ":8080",
+		ReadTimeout:    5000,
+		WriteTimeout:   5000,
+		IdleTimeout:    60000,
+		MaxHeaderBytes: 1 << 20,
+	}
 
-	log.Println("Server started at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	srv := &server.Server{}
+	if err := srv.Run(srvCfg, handler); err != nil {
+		log.Fatal(err)
+	}
 }

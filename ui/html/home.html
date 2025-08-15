@@ -1,0 +1,17 @@
+{{ define "content" }}
+<h1>Posts</h1>
+<div class="flex flex-col gap-4">
+  {{ range .Posts }}
+    <article class="post">
+      <h2>{{ .Title }}</h2>
+      <p>{{ .Content }}</p>
+      <div class="post-actions">
+        <a href="/post/get?id={{ .Id }}">Open</a>
+      </div>
+    </article>
+  {{ else }}
+    <div class="text-center">No posts yet</div>
+  {{ end }}
+</div>
+{{ end }}
+

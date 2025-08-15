@@ -13,7 +13,7 @@ import (
 )
 
 func (s *SessionService) Record(userId int64) (*models.Session, error) {
-	uid := uuid.NewV4()
+	uid := uuid.New()
 	session := &models.Session{
 		Uuid:      uid.String(),
 		UserId:    userId,

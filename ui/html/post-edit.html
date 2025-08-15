@@ -1,0 +1,14 @@
+{{ define "content" }}
+<h1>Edit Post</h1>
+<form method="post" action="/post/edit">
+  <input type="hidden" name="id" value="{{ .Post.Id }}" />
+  <label>Title
+    <input name="title" type="text" maxlength="100" value="{{ .Post.Title }}" required />
+  </label>
+  <label>Content
+    <textarea name="content" rows="6" required>{{ .Post.Content }}</textarea>
+  </label>
+  <button type="submit">Save</button>
+  <a href="/post/get?id={{ .Post.Id }}">Cancel</a>
+</form>
+{{ end }} 

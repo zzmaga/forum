@@ -1,0 +1,19 @@
+{{ define "alert" }}
+  {{ if .Error }}
+  <div class="alert alert-error">{{ .Error }}</div>
+  {{ end }}
+  {{ if .Warn }}
+  <div class="alert alert-warning">{{ .Warn }}</div>
+  {{ end }}
+  {{ if .Info }}
+  <div class="alert alert-info">{{ .Info }}</div>
+  {{ end }}
+  {{ if .Success }}
+  <div class="alert alert-success">{{ .Success }}</div>
+  {{ end }}
+{{ end }}
+
+{{ define "content" }}
+  {{ template "alert" . }}
+{{ end }}
+
