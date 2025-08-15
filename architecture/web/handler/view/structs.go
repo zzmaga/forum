@@ -14,3 +14,7 @@ type Page struct {
 	Info    error // Notification Info
 	Success error // Notification Success
 }
+
+type View struct {
+	templatesDir string
+}
