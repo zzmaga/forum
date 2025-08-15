@@ -1,8 +1,7 @@
 package main
 
 import (
-	"forum/internal/database"
-	"forum/internal/handlers"
+	database "forum/internal"
 	"log"
 	"net/http"
 )

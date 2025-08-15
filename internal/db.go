@@ -1,6 +1,13 @@
 package database
 
-import "log"
+import (
+	"database/sql"
+	"log"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+var DB *sql.DB
 
 // -- USERS
 func UsersTable() {
