@@ -20,6 +20,7 @@ type IUserService interface {
 
 	GetByID(id int64) (*User, error)
 	GetByNicknameOrEmail(field string) (*User, error)
+	GetByEmail(email string) (*User, error)
 	// GetAll(from, offset int64) error
 }
 

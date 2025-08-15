@@ -14,7 +14,7 @@ func UsersTable() {
 	query := `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-		nickname NVARCHAR(32) UNIQUE NOT NULL CHECK(LENGTH(username) <= 32),
+		nickname NVARCHAR(32) UNIQUE NOT NULL CHECK(LENGTH(nickname) <= 32),
 		email NVARCHAR(320) UNIQUE NOT NULL CHECK(LENGTH(email) <= 320),
 		password TEXT
 	);`
@@ -236,7 +236,46 @@ func migrate(db *sql.DB) error {
 			return err
 		}
 	}
+
+	// compatibility adjustments for legacy schemas
+	// add updated_at to posts if missing
+	ensureColumn(db, "posts", "updated_at", "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP")
+	// add created_at to categories if missing
+	ensureColumn(db, "categories", "created_at", "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP")
+	// add uuid to sessions if missing
+	ensureColumn(db, "sessions", "uuid", "TEXT")
+	// add nickname to users if missing; if legacy username exists, copy values
+	ensureColumn(db, "users", "nickname", "NVARCHAR(32)")
+	_, _ = db.Exec(`UPDATE users SET nickname = email WHERE (nickname IS NULL OR nickname = '') AND email IS NOT NULL AND email != ''`)
+
 	return nil
+}
+
+func ensureColumn(db *sql.DB, table, column, decl string) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	var (
+		cid     int
+		name    string
+		ctype   string
+		notnull int
+		dflt    interface{}
+		pk      int
+	)
+	exists := false
+	for rows.Next() {
+		_ = rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk)
+		if name == column {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		_, _ = db.Exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + decl)
+	}
 }
 
 func insertDefaultCategoriesNew(db *sql.DB) error {

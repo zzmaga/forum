@@ -9,3 +9,7 @@ type UserService struct {
 func NewUserService(repo models.IUserRepo) *UserService {
 	return &UserService{repo}
 }
+
+func (u *UserService) GetByEmail(email string) (*models.User, error) {
+	return u.repo.GetByEmail(email)
+}

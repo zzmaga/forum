@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"forum/architecture/web/handler/cookies"
@@ -62,25 +63,27 @@ func (m *MainHandler) SignInHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		usr, err := m.service.User.GetByNicknameOrEmail(r.FormValue("login"))
+		email := strings.TrimSpace(r.FormValue("email"))
+		if email == "" {
+			pg := &view.Page{Error: fmt.Errorf("email is required")}
+			m.view.ExecuteTemplate(w, pg, "sign-in.html")
+			return
+		}
+
+		usr, err := m.service.User.GetByEmail(email)
 		switch {
 		case err == nil:
 		case errors.Is(err, suser.ErrNotFound):
-			pg := &view.Page{Error: fmt.Errorf("user with login \"%v\" not found", r.FormValue("login"))}
+			pg := &view.Page{Error: fmt.Errorf("user with email \"%v\" not found", email)}
 			m.view.ExecuteTemplate(w, pg, "sign-in.html")
 			return
 		case errors.Is(err, suser.ErrInvalidEmail):
 			w.WriteHeader(http.StatusBadRequest)
-			pg := &view.Page{Error: fmt.Errorf("invalid email %v", r.FormValue("login"))}
-			m.view.ExecuteTemplate(w, pg, "sign-in.html")
-			return
-		case errors.Is(err, suser.ErrInvalidNickname):
-			w.WriteHeader(http.StatusBadRequest)
-			pg := &view.Page{Error: fmt.Errorf("invalid nickname %v", r.FormValue("login"))}
+			pg := &view.Page{Error: fmt.Errorf("invalid email %v", email)}
 			m.view.ExecuteTemplate(w, pg, "sign-in.html")
 			return
 		default:
-			log.Printf("SignInHandler: User.GetByNicknameOrEmail: %s", err)
+			log.Printf("SignInHandler: User.GetByEmail: %s", err)
 			pg := &view.Page{Error: fmt.Errorf("something wrong, maybe try again later")}
 			w.WriteHeader(http.StatusInternalServerError)
 			m.view.ExecuteTemplate(w, pg, "sign-in.html")
@@ -97,7 +100,7 @@ func (m *MainHandler) SignInHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case !areEqual:
 			w.WriteHeader(http.StatusBadRequest)
-			pg := &view.Page{Error: fmt.Errorf("invalid password for login \"%s\"", r.FormValue("login"))}
+			pg := &view.Page{Error: fmt.Errorf("invalid password for login \"%s\"", email)}
 			m.view.ExecuteTemplate(w, pg, "sign-in.html")
 			return
 		}
