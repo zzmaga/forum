@@ -3,7 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"forum/internal/database"
-	internal "forum/internal/template"
+	"forum/internal/template"
 	"log"
 	"net/http"
 	"time"
@@ -34,7 +34,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		"UserID":     userID,
 	}
 
-	internal.RenderTemplate(w, "index.html", data)
+	template.RenderTemplate(w, "index.html", data)
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,11 +62,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetRegisterHandler(w http.ResponseWriter, r *http.Request) {
-	internal.RenderTemplate(w, "register.html", nil)
+	template.RenderTemplate(w, "register.html", nil)
 }
 
 func GetLoginHandler(w http.ResponseWriter, r *http.Request) {
-	internal.RenderTemplate(w, "login.html", nil)
+	template.RenderTemplate(w, "login.html", nil)
 }
 
 func PostRegisterHandler(w http.ResponseWriter, r *http.Request) {

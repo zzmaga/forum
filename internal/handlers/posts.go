@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"forum/internal/database"
 	"forum/internal/models"
-	internal "forum/internal/template"
+	"forum/internal/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -40,7 +40,7 @@ func GetCreatePostHandler(w http.ResponseWriter, r *http.Request) {
 		"UserID":     userID,
 	}
 
-	internal.RenderTemplate(w, "create_post.html", data)
+	template.RenderTemplate(w, "create_post.html", data)
 }
 
 func PostCreatePostHandler(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +127,7 @@ func ViewPostHandler(w http.ResponseWriter, r *http.Request) {
 		"Comments": comments,
 	}
 
-	internal.RenderTemplate(w, "view_post.html", data)
+	template.RenderTemplate(w, "view_post.html", data)
 }
 
 func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
@@ -328,5 +328,5 @@ func FilterPostsHandler(w http.ResponseWriter, r *http.Request) {
 		"FilterType": filterType,
 	}
 
-	internal.RenderTemplate(w, "index.html", data)
+	template.RenderTemplate(w, "index.html", data)
 }

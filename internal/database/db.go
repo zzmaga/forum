@@ -257,9 +257,16 @@ func GetCommentsByPost(postID int) ([]models.Comment, error) {
 // Функции для работы с лайками
 func ToggleLike(userID, postID, commentID int, isLike bool) error {
 	// Сначала удаляем существующий лайк/дизлайк
-	_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND ((post_id = ? AND comment_id IS NULL) OR (comment_id = ? AND post_id IS NULL))", userID, postID, commentID)
-	if err != nil {
-		return err
+	if postID > 0 {
+		_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND post_id = ? AND comment_id IS NULL", userID, postID)
+		if err != nil {
+			return err
+		}
+	} else if commentID > 0 {
+		_, err := DB.Exec("DELETE FROM likes WHERE user_id = ? AND comment_id = ? AND post_id IS NULL", userID, commentID)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Добавляем новый лайк/дизлайк
@@ -271,11 +278,14 @@ func ToggleLike(userID, postID, commentID int, isLike bool) error {
 	}
 
 	if postID > 0 {
-		_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, ?, NULL, ?)", userID, postID, isLikeInt)
-	} else {
-		_, err = DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, NULL, ?, ?)", userID, commentID, isLikeInt)
+		_, err := DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, ?, NULL, ?)", userID, postID, isLikeInt)
+		return err
+	} else if commentID > 0 {
+		_, err := DB.Exec("INSERT INTO likes(user_id, post_id, comment_id, is_like) VALUES (?, NULL, ?, ?)", userID, commentID, isLikeInt)
+		return err
 	}
-	return err
+
+	return nil
 }
 
 // Функции для работы с категориями

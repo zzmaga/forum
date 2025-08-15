@@ -10,6 +10,7 @@ func (v *View) getTemplate(names ...string) (*template.Template, error) {
 	for _, name := range names {
 		paths = append(paths, v.templatesDir+"/"+name)
 	}
+
 	t, err := template.ParseFiles(paths...)
 	if err != nil {
 		return nil, fmt.Errorf("template.ParseFiles: %w", err)
