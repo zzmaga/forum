@@ -9,8 +9,8 @@ import (
 )
 
 func (u *User) ValidateNickname() error {
-	if lng := len(u.Nickname); lng < 1 || 32 < lng {
-		return fmt.Errorf("nickname: invalid lenght (%d)", lng)
+	if err := len([]rune(u.Nickname)); err < 1 || 32 < err {
+		return fmt.Errorf("nickname: invalid lenght (%d)", err)
 	}
 	for _, c := range u.Nickname {
 		if !(unicode.IsLetter(c) || unicode.IsDigit(c)) {
@@ -21,8 +21,8 @@ func (u *User) ValidateNickname() error {
 }
 
 func (u *User) ValidateEmail() error {
-	if lng := len(u.Email); lng < 1 || 320 < lng {
-		return fmt.Errorf("email: invalid lenght (%d)", lng)
+	if err := len([]rune(u.Email)); err < 1 || 320 < err {
+		return fmt.Errorf("email: invalid lenght (%d)", err)
 	}
 	_, err := mail.ParseAddress(u.Email)
 	if err != nil {
